@@ -1,0 +1,513 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Atlas Operations | Unified Management Center</title>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { 
+      --bg-core: #0b0f19;
+      --panel-bg: rgba(18, 24, 38, 0.9);
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent-blue: #3b82f6;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --accent-purple: #8b5cf6;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: var(--bg-core); color: var(--text-main); font-family: 'Plus Jakarta Sans', sans-serif; overflow: hidden; font-size: 14px; }
+    button { font: inherit; }
+    
+    .login-overlay { position: fixed; inset: 0; background: rgba(7, 10, 18, 0.98); backdrop-filter: blur(16px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .login-overlay.hidden { display: none; }
+    .login-card { background: rgba(14, 19, 31, 0.98); border: 1px solid var(--panel-border); border-radius: 16px; padding: 24px; width: 100%; max-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 14px; }
+    .login-card h2 { margin: 0; font-size: 18px; color: #fff; }
+    .login-card p { margin: 0; font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+    .login-input { background: rgba(11, 15, 25, 0.9); border: 1px solid var(--panel-border); padding: 10px 12px; border-radius: 8px; color: #fff; font-size: 13px; outline: none; width: 100%; }
+    .login-btn { background: linear-gradient(135deg, #3b82f6, #2563eb); border: none; padding: 10px; border-radius: 8px; color: #fff; font-weight: 600; cursor: pointer; font-size: 13px; }
+
+    .app { width: 100%; height: 100%; display: flex; flex-direction: column; }
+    
+    .topbar { height: 60px; min-height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: rgba(11, 15, 25, 0.95); border-bottom: 1px solid var(--panel-border); z-index: 10; }
+    .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; }
+    .brand-mark { width: 30px; height: 30px; display: grid; place-items: center; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; border-radius: 6px; }
+    .breadcrumb { color: var(--text-muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: none; }
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+    .icon-button { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--panel-border); background: var(--panel-bg); border-radius: 6px; color: var(--text-main); cursor: pointer; }
+    .avatar-box { display: flex; align-items: center; gap: 6px; background: var(--panel-bg); border: 1px solid var(--panel-border); padding: 3px 8px; border-radius: 16px; cursor: pointer; }
+    .avatar { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: #fff; font-weight: 700; font-size: 10px; }
+    .avatar-name { font-size: 11px; font-weight: 600; color: var(--text-main); }
+
+    .shell { flex: 1; display: grid; grid-template-columns: 220px 1fr; position: relative; overflow: hidden; height: calc(100% - 60px); }
+    
+    .sidebar { background: rgba(14, 19, 31, 0.95); border-right: 1px solid var(--panel-border); padding: 10px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; z-index: 5; }
+    .nav-title { color: var(--text-muted); font-size: 9px; font-weight: 700; letter-spacing: 0.08em; margin: 8px 6px 4px; text-transform: uppercase; }
+    .nav-item { width: 100%; display: flex; align-items: center; gap: 8px; border: 0; background: transparent; color: var(--text-muted); text-align: left; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 12px; }
+    .nav-item:hover, .nav-item.active { color: #fff; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); }
+    .nav-item svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    .map-stage { position: relative; width: 100%; height: 100%; overflow: hidden; background: #070a12; }
+    #scene { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+    
+    .scene-toolbar { position: absolute; z-index: 3; top: 10px; left: 10px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .scene-chip { display: flex; align-items: center; gap: 4px; background: var(--panel-bg); border: 1px solid var(--panel-border); padding: 6px 10px; border-radius: 6px; color: var(--text-main); font-size: 11px; font-weight: 600; }
+    .scene-button { border: 1px solid var(--panel-border); background: var(--panel-bg); color: var(--text-main); padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; }
+
+    .status-legend { position: absolute; z-index: 3; bottom: 10px; left: 10px; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none; }
+    .legend { display: flex; align-items: center; gap: 4px; padding: 4px 8px; background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 4px; color: var(--text-muted); font-size: 10px; font-weight: 600; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; } 
+    .green { background: var(--accent-green); } 
+    .amber { background: var(--accent-amber); } 
+    .red { background: var(--accent-red); } 
+    .blue { background: var(--accent-blue); }
+
+    .map-label { position: absolute; z-index: 4; transform: translate(-50%, -120%); pointer-events: none; padding: 4px 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; background: rgba(11, 15, 25, 0.9); color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; opacity: 0; transition: opacity 0.15s; }
+    .map-label.visible { opacity: 1; }
+
+    .work-area { display: none; position: absolute; z-index: 20; inset: 0; background: var(--bg-core); overflow-y: auto; }
+    .work-area.open { display: block; }
+    .work-head { height: 60px; display: flex; align-items: center; gap: 10px; padding: 0 16px; border-bottom: 1px solid var(--panel-border); background: rgba(14, 19, 31, 0.95); }
+    .back-button { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--panel-bg); color: #fff; cursor: pointer; }
+    .work-title { font-size: 16px; font-weight: 700; flex: 1; }
+    
+    .work-grid { padding: 16px; display: grid; grid-template-columns: 1fr; gap: 16px; }
+    .work-main { background: rgba(14, 19, 31, 0.8); border: 1px solid var(--panel-border); border-radius: 10px; padding: 16px; }
+    .work-section h2 { margin: 0 0 4px; font-size: 14px; color: #fff; }
+    .work-section p { margin: 0 0 12px; color: var(--text-muted); font-size: 12px; }
+    
+    .custom-input-box { background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); padding: 12px; border-radius: 8px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .input-group { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+    .input-group label { font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+    .input-group input { background: rgba(11, 15, 25, 0.9); border: 1px solid var(--panel-border); padding: 8px 10px; border-radius: 6px; color: #fff; font-size: 12px; outline: none; width: 100%; }
+
+    .table-container { width: 100%; overflow-x: auto; }
+    .work-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; min-width: 420px; }
+    .work-table th, .work-table td { padding: 8px; text-align: left; border-bottom: 1px solid var(--panel-border); }
+    .work-table th { color: var(--text-muted); font-weight: 600; font-size: 10px; text-transform: uppercase; }
+    .work-table td { color: var(--text-main); }
+    
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+    .badge.warn { color: #f59e0b; background: rgba(245, 158, 11, 0.15); } 
+    .badge.ok { color: #10b981; background: rgba(16, 185, 129, 0.15); } 
+    .badge.progress { color: #3b82f6; background: rgba(59, 130, 246, 0.15); }
+    .badge.danger { color: #ef4444; background: rgba(239, 68, 68, 0.15); }
+
+    .prod-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 10px; }
+    .prod-card { background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .prod-card img { width: 100%; height: 100px; object-fit: cover; border-radius: 6px; }
+
+    .primary-action { width: 100%; display: flex; justify-content: center; align-items: center; gap: 6px; border: 0; border-radius: 6px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; padding: 10px; font-weight: 600; font-size: 13px; cursor: pointer; }
+    .secondary-action { width: 100%; border: 1px solid var(--panel-border); border-radius: 6px; background: rgba(255,255,255,0.03); color: var(--text-main); padding: 6px; cursor: pointer; font-weight: 600; font-size: 11px; }
+
+    @media (max-width: 768px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .breadcrumb { display: block; }
+    }
+
+    @media (min-width: 600px) {
+      .custom-input-box { flex-direction: row; align-items: flex-end; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-overlay" id="login-overlay">
+    <div class="login-card">
+      <h2 id="modal-title">Management Login</h2>
+      <p>Tamaru name lakho jethi dashboard ma entry thay ane login thavani notification seedhi <b>trudrabhalala@gmail.com</b> par mali shake.</p>
+      <div class="input-group">
+        <label>Your Name / Manager ID</label>
+        <input type="text" id="user-name-input" class="login-input" placeholder="e.g. Trudra Manager">
+      </div>
+      <button class="login-btn" id="submit-login">Save & Open Dashboard</button>
+    </div>
+  </div>
+
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark"><i data-lucide="boxes"></i></span>
+        <span>Atlas Operations</span>
+      </div>
+      <div class="breadcrumb" id="user-breadcrumb">Smart Industrial Complex</div>
+      <div class="top-actions">
+        <button class="icon-button" id="toggle-sidebar-mobile" aria-label="Menu" title="Toggle Menu"><i data-lucide="menu"></i></button>
+        <div class="avatar-box" id="open-edit-profile" title="Click to change name">
+          <div class="avatar" id="user-avatar">TM</div>
+          <span class="avatar-name" id="avatar-name-text">Manager</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="shell">
+      <nav class="sidebar" id="sidebar-nav" aria-label="Primary navigation">
+        <div class="nav-title">Workspace</div>
+        <button class="nav-item active" data-open="Company Map"><i data-lucide="map"></i><span>Company Map</span></button>
+        <button class="nav-item" data-open="Purchasing"><i data-lucide="shopping-cart"></i><span>Purchasing</span></button>
+        <button class="nav-item" data-open="Warehouse"><i data-lucide="warehouse"></i><span>Warehouse</span></button>
+        <button class="nav-item" data-open="Production"><i data-lucide="factory"></i><span>Production Hub</span></button>
+        <button class="nav-item" data-open="Logistics"><i data-lucide="truck"></i><span>Logistics</span></button>
+        <div class="nav-title">Inventory & Catalog</div>
+        <button class="nav-item" data-open="Materials & Pricing"><i data-lucide="tag"></i><span>Materials & Pricing</span></button>
+        <button class="nav-item" data-open="Customer Products & Photos"><i data-lucide="image"></i><span>Customer Products & Photos</span></button>
+        <button class="nav-item" data-open="Payments & Delays"><i data-lucide="credit-card"></i><span>Payment Delays</span></button>
+      </nav>
+
+      <main class="map-stage" aria-label="Interactive 3D company map">
+        <div id="scene"></div>
+        <div class="scene-toolbar">
+          <div class="scene-chip"><i data-lucide="radio"></i><span>Live Telemetry</span></div>
+          <button class="scene-button" id="reset-view">Reset View</button>
+        </div>
+        <div class="status-legend" aria-label="Map status legend">
+          <div class="legend"><span class="dot green"></span>On Plan</div>
+          <div class="legend"><span class="dot amber"></span>Attention</div>
+          <div class="legend"><span class="dot red"></span>Delayed</div>
+        </div>
+        <div class="map-label" id="map-label"></div>
+
+        <section class="work-area" id="work-area" aria-live="polite">
+          <header class="work-head">
+            <button class="back-button" id="back-to-map" aria-label="Back to map"><i data-lucide="arrow-left"></i></button>
+            <div class="work-title" id="work-title">Warehouse</div>
+            <button class="primary-action" style="width:auto; padding: 6px 10px; font-size: 11px;" id="work-action">Create Request</button>
+          </header>
+          
+          <div class="work-grid">
+            <div class="work-main">
+              <section class="work-section">
+                <h2 id="work-heading">Inventory Tracking</h2>
+                <p id="work-description">Review real-time metrics and manage facility status.</p>
+                
+                <div class="custom-input-box" id="dynamic-input-container">
+                  <div class="input-group">
+                    <label>Item / Name</label>
+                    <input type="text" id="custom-item-name" placeholder="e.g. Special Steel">
+                  </div>
+                  <div class="input-group">
+                    <label>Price & Status (in ₹)</label>
+                    <input type="text" id="custom-item-status" placeholder="e.g. ₹1,50,000">
+                  </div>
+                  <div class="input-group" id="extra-input-group" style="display:none;">
+                    <label>Photo Image Link</label>
+                    <input type="text" id="custom-item-img" placeholder="Paste image web link">
+                  </div>
+                  <button class="primary-action" id="add-custom-row" style="height: 36px;">Add / Update</button>
+                </div>
+
+                <div id="table-view-container">
+                  <div class="table-container">
+                    <table class="work-table">
+                      <thead>
+                        <tr>
+                          <th id="col-one">Item / Reference</th>
+                          <th>Status & Price Details</th>
+                          <th>Action Required</th>
+                        </tr>
+                      </thead>
+                      <tbody id="work-rows"></tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div id="product-grid-view" style="display:none;">
+                  <div class="prod-grid" id="mgmt-prod-grid"></div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    document.getElementById('toggle-sidebar-mobile').addEventListener('click', () => {
+      const sb = document.getElementById('sidebar-nav');
+      sb.style.display = sb.style.display === 'flex' ? 'none' : 'flex';
+    });
+
+    document.getElementById('open-edit-profile').addEventListener('click', () => {
+      document.getElementById('modal-title').textContent = "Update Manager Profile";
+      document.getElementById('login-overlay').classList.remove('hidden');
+    });
+
+    document.getElementById('submit-login').addEventListener('click', () => {
+      const name = document.getElementById('user-name-input').value.trim();
+      if (!name) { alert('Krupa karine tamaru name lakho!'); return; }
+      const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+      document.getElementById('user-avatar').textContent = initials || 'TM';
+      document.getElementById('avatar-name-text').textContent = name;
+      document.getElementById('user-breadcrumb').textContent = `Manager: ${name}`;
+      document.getElementById('login-overlay').classList.add('hidden');
+      alert(`Welcome ${name}! Email alert triggered for trudrabhalala@gmail.com.`);
+    });
+
+    let customerProducts = JSON.parse(localStorage.getItem('atlas_products')) || [
+      { name: "Aluminium Coil", price: "₹2,02,400", img: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=300" },
+      { name: "Steel Sheet", price: "₹1,50,000", img: "https://images.unsplash.com/photo-1565793298595-6a879b1d9492?w=300" }
+    ];
+
+    const areas = {
+      "Purchasing": { 
+        status: 'On plan', color: '#10b981', copy: 'Supplier contracts running smoothly.', 
+        rows: [['Steel sheet - 2 tonnes', '<span class="badge progress">Price: ₹1,50,000</span>', 'Compare']], 
+        heading: 'Purchasing & Supply', description: 'Verify supplier quotes.', action: 'Create RFQ'
+      },
+      "Warehouse": { 
+        status: 'Needs attention', color: '#f59e0b', copy: 'Low inventory stock alerts.', 
+        rows: [['Aluminium coil', '<span class="badge warn">Price: ₹2,02,400</span>', 'Reorder']], 
+        heading: 'Warehouse Stock', description: 'Monitor storage units.', action: 'Request Stock'
+      },
+      "Production": { 
+        status: 'Running', color: '#3b82f6', copy: 'Assembly line operating at 92%.', 
+        rows: [['Order PR-220', '<span class="badge warn">Cost: ₹4,30,000</span>', 'Verify']], 
+        heading: 'Production Floor', description: 'Track manufacturing output.', action: 'New Order'
+      },
+      "Logistics": { 
+        status: '1 delayed', color: '#ef4444', copy: '1 shipment experiencing congestion.', 
+        rows: [['Shipment SH-901', '<span class="badge danger">Cost: ₹70,000</span>', 'Reroute']], 
+        heading: 'Fleet & Logistics', description: 'Optimize transport.', action: 'Book Transport'
+      },
+      "Materials & Pricing": {
+        status: 'Active', color: '#10b981', copy: 'Manage active material rates.',
+        rows: [['Aluminium Coil', '<span class="badge ok">Price: ₹2,02,400</span>', 'Edit']],
+        heading: 'Materials Directory', description: 'Modify rates.', action: 'Add Material'
+      },
+      "Customer Products & Photos": {
+        status: 'Sync Active', color: '#10b981', copy: 'Manage products and photos displayed on customer website.',
+        rows: [],
+        heading: 'Customer Products & Photo Manager',
+        description: 'Add or remove products with price in ₹ and photo URL for customers.',
+        action: 'Publish Product'
+      },
+      "Payments & Delays": { 
+        status: 'Action required', color: '#ef4444', copy: 'Tracking overdue invoices.', 
+        rows: [['Invoice #INV-4092', '<span class="badge danger">₹9,95,000</span>', 'Reminder']], 
+        heading: 'Payment Center', description: 'Resolve bottlenecks.', action: 'Process Payout'
+      }
+    };
+
+    let currentOpenArea = null;
+    const el = id => document.getElementById(id);
+
+    function openWork(name) {
+      const area = areas[name]; if (!area) return;
+      currentOpenArea = name;
+      el('work-title').textContent = name;
+      el('work-heading').textContent = area.heading;
+      el('work-description').textContent = area.description;
+      el('work-action').textContent = area.action;
+
+      const extraGroup = el('extra-input-group');
+      const tableView = el('table-view-container');
+      const gridView = el('product-grid-view');
+
+      if (name === "Customer Products & Photos") {
+        extraGroup.style.display = 'flex';
+        tableView.style.display = 'none';
+        gridView.style.display = 'block';
+        renderCustomerProductsGrid();
+      } else {
+        extraGroup.style.display = 'none';
+        tableView.style.display = 'block';
+        gridView.style.display = 'none';
+        renderRows(area.rows);
+      }
+
+      el('work-area').classList.add('open');
+      if(window.innerWidth <= 768) {
+        document.getElementById('sidebar-nav').style.display = 'none';
+      }
+    }
+
+    function renderRows(rows) {
+      el('work-rows').innerHTML = rows.map((row, index) => `
+        <tr>
+          <td>${row[0]}</td>
+          <td>${row[1]}</td>
+          <td><button class="secondary-action" style="margin:0;padding:4px 8px;width:auto" onclick="deleteRow(${index})">Remove</button></td>
+        </tr>
+      `).join('');
+    }
+
+    function renderCustomerProductsGrid() {
+      const grid = el('mgmt-prod-grid');
+      grid.innerHTML = customerProducts.map((p, index) => `
+        <div class="prod-card">
+          <img src="${p.img}" alt="Photo">
+          <div style="font-weight:700; color:#fff; font-size:11px;">${p.name}</div>
+          <div style="color:var(--accent-green); font-size:11px;">${p.price}</div>
+          <button class="secondary-action" style="background:#ef4444; padding:4px; font-size:10px;" onclick="deleteCustomerProduct(${index})">Delete</button>
+        </div>
+      `).join('');
+      localStorage.setItem('atlas_products', JSON.stringify(customerProducts));
+    }
+
+    el('add-custom-row').addEventListener('click', () => {
+      const name = el('custom-item-name').value.trim();
+      const val1 = el('custom-item-status').value.trim();
+      const img = el('custom-item-img').value.trim();
+
+      if (!name || !val1) { alert('Krupa karine badha fields bharo!'); return; }
+
+      if (currentOpenArea === "Customer Products & Photos") {
+        if (!img) { alert('Krupa karine photo image link pan nakho!'); return; }
+        customerProducts.push({ name, price: val1, img });
+        renderCustomerProductsGrid();
+        el('custom-item-name').value = '';
+        el('custom-item-status').value = '';
+        el('custom-item-img').value = '';
+        alert('Product and photo published successfully for customer portal!');
+      } else {
+        if (currentOpenArea && areas[currentOpenArea]) {
+          areas[currentOpenArea].rows.push([name, `<span class="badge progress">${val1}</span>`, 'Custom']);
+          renderRows(areas[currentOpenArea].rows);
+          el('custom-item-name').value = '';
+          el('custom-item-status').value = '';
+        }
+      }
+    });
+
+    window.deleteRow = function(index) {
+      if (currentOpenArea && areas[currentOpenArea]) {
+        areas[currentOpenArea].rows.splice(index, 1);
+        renderRows(areas[currentOpenArea].rows);
+      }
+    };
+
+    window.deleteCustomerProduct = function(index) {
+      customerProducts.splice(index, 1);
+      renderCustomerProductsGrid();
+    };
+
+    el('back-to-map').addEventListener('click', () => el('work-area').classList.remove('open'));
+    document.querySelectorAll('[data-open]').forEach(button => button.addEventListener('click', () => openWork(button.dataset.open)));
+
+    const container = el('scene');
+    const scene = new THREE.Scene(); 
+    scene.background = new THREE.Color('#070a12'); 
+
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 300); 
+    camera.position.set(25, 22, 32);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true }); 
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement); 
+    controls.target.set(0, 0, 0); 
+    controls.enableDamping = true; 
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI * 0.44; 
+    controls.minDistance = 10; 
+    controls.maxDistance = 70;
+
+    scene.add(new THREE.AmbientLight('#1e293b', 1.8)); 
+    const sun = new THREE.DirectionalLight('#60a5fa', 2.5); 
+    sun.position.set(15, 30, 15); 
+    scene.add(sun);
+
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(90, 90), 
+      new THREE.MeshStandardMaterial({ color: '#0d1322', roughness: 0.9 })
+    ); 
+    ground.rotation.x = -Math.PI / 2; 
+    scene.add(ground);
+
+    const grid = new THREE.GridHelper(80, 20, '#1d4ed8', '#131b2e'); 
+    grid.position.y = 0.03; 
+    scene.add(grid);
+
+    const clickable = []; 
+    const anchors = [];
+
+    function makeBuilding(name, pos, size, color, label) {
+      const group = new THREE.Group(); 
+      group.position.set(...pos); 
+      group.userData = { name, label };
+      
+      const base = new THREE.Mesh(
+        new THREE.BoxGeometry(size[0], size[1], size[2]), 
+        new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.8 })
+      ); 
+      base.position.y = size[1] / 2; 
+      group.add(base);
+      
+      group.traverse(child => { 
+        if (child.isMesh) { 
+          child.userData = { name, label, group }; 
+          clickable.push(child); 
+        } 
+      }); 
+      
+      scene.add(group); 
+      anchors.push({ object: group, text: label }); 
+    }
+
+    makeBuilding('Purchasing', [-10, 0, -5], [8, 5, 7], '#10b981', 'Purchasing Dept');
+    makeBuilding('Warehouse', [-7, 0, 8], [10, 6, 8], '#f59e0b', 'Small Warehouse');
+    makeBuilding('Production', [8, 0, 5], [12, 7, 10], '#3b82f6', 'Main Factory Floor');
+    makeBuilding('Logistics', [12, 0, -6], [9, 5, 8], '#ef4444', 'Logistics Bay');
+    makeBuilding('Payments & Delays', [0, 0, -10], [8, 5, 6], '#8b5cf6', 'Accounts & Payments');
+
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+
+    function triggerAction(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      const clientX = event.clientX || (event.touches && event.touches[0].clientX);
+      const clientY = event.clientY || (event.touches && event.touches[0].clientY);
+      if(clientX === undefined) return;
+      
+      pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hit = raycaster.intersectObjects(clickable, false)[0];
+      if (hit) openWork(hit.object.userData.name);
+    }
+
+    renderer.domElement.addEventListener('click', triggerAction);
+    renderer.domElement.addEventListener('touchend', triggerAction);
+
+    function resize() {
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      if (width === 0 || height === 0) return;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    }
+    window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', () => setTimeout(resize, 300));
+    setTimeout(resize, 100);
+
+    const label = el('map-label');
+
+    el('reset-view').addEventListener('click', () => {
+      controls.target.set(0, 0, 0);
+      camera.position.set(25, 22, 32);
+    });
+
+    function render() {
+      requestAnimationFrame(render);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    render();
+  </script>
+</body>
+</html>
